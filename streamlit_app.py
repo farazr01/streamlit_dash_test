@@ -7,38 +7,22 @@ import openai
 # -----------------------------
 # Function to Get Chatbot Response
 # -----------------------------
-def get_chatbot_response(user_query):
+def get_chatbot_response():
     """
-    Send the user query along with instructions about the e-commerce data model 
-    to the OpenAI API and return the chatbot response.
+    Calls the OpenAI ChatCompletion API using the conversation history stored in st.session_state.messages.
+    The assistant's response is appended to the conversation.
     """
-    # Define a system prompt that gives context about your entire data model.
-    # You can expand this with additional schema details or sample data as needed.
-    system_prompt = (
-        "You are an expert in e-commerce business analytics. You have deep knowledge of "
-        "the entire data model including Orders, Payments, Products, Inventory, Customers, "
-        "Suppliers, Shipping, and other related tables. Provide insightful analysis and recommendations "
-        "across the entire data model. Answer in a concise and professional manner."
-    )
-
-    # Create the conversation messages. In a production app you may wish to track a longer conversation history.
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_query}
-    ]
-
     try:
-        # Call the OpenAI ChatCompletion API
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # Change this if you want to use a different model.
-            messages=messages,
-            max_tokens=300,  # Adjust as needed based on how detailed you want the answer.
-            temperature=0.7
+            model="gpt-3.5-turbo",  # You can change this if needed.
+            messages=st.session_state.messages,
+            temperature=0.7,
+            max_tokens=300
         )
-        bot_message = response['choices'][0]['message']['content']
-        return bot_message
+        # Append the assistant's message to the conversation history.
+        st.session_state.messages.append(response["choices"][0]["message"])
     except Exception as e:
-        return f"Error while calling OpenAI API: {e}"
+        st.error(f"Error while calling OpenAI API: {e}")
 
 # -----------------------------
 # Main App Function
@@ -55,20 +39,17 @@ def main():
     # Sidebar: Navigation and API Key Setup
     # -----------------------------
     st.sidebar.title("Navigation")
-    # Include all pages; add 'Chatbot Insights' as an extra page.
     pages = ["Dashboard", "Chatbot Insights"]
     page_selection = st.sidebar.radio("Go to", pages)
 
-    # OpenAI API Key Setup:
-    # It is best practice to store your API key in Streamlit's secrets.
-    # If not set, the user can input it manually.
+    # Set up the OpenAI API key
     if "openai_api_key" not in st.session_state:
         st.session_state["openai_api_key"] = st.secrets.get("OPENAI_API_KEY", "")
     if not st.session_state["openai_api_key"]:
         st.session_state["openai_api_key"] = st.sidebar.text_input("Enter your OpenAI API Key", type="password")
     openai.api_key = st.session_state["openai_api_key"]
 
-    # Sidebar Date Range Filter (for use on Dashboard page)
+    # Sidebar Date Range Filter (used on the Dashboard page)
     st.sidebar.title("Date Range")
     start_date = st.sidebar.date_input("Start Date", datetime.now() - timedelta(days=30))
     end_date = st.sidebar.date_input("End Date", datetime.now())
@@ -101,11 +82,12 @@ def main():
         col1, col2 = st.columns(2)
         with col1:
             st.write("**Sales Trend Chart**")
-            # Placeholder: generate random sales data.
+            # Placeholder: Replace with your real sales data.
             sales_data = np.random.randint(100, 500, 10)
             st.line_chart(sales_data)
         with col2:
             st.write("**Orders Trend Chart**")
+            # Placeholder: Replace with your real orders data.
             orders_data = np.random.randint(20, 100, 10)
             st.line_chart(orders_data)
 
@@ -116,7 +98,7 @@ def main():
         col1, col2 = st.columns(2)
         with col1:
             st.write("**Top Products**")
-            # Replace the sample data with your actual query/data.
+            # Replace the sample data with your actual product query.
             top_products_data = {
                 "Product": ["Product A", "Product B", "Product C"],
                 "Units Sold": [120, 90, 75],
@@ -126,7 +108,7 @@ def main():
             st.table(df_top_products)
         with col2:
             st.write("**Top Categories**")
-            # Replace with your actual data.
+            # Replace with your actual category data.
             top_categories_data = {
                 "Category": ["Electronics", "Home & Garden", "Fashion"],
                 "Units Sold": [300, 180, 150],
@@ -142,7 +124,7 @@ def main():
         col1, col2 = st.columns(2)
         with col1:
             st.write("**Low Stock Items**")
-            # Replace with your actual inventory query.
+            # Replace with your real inventory data.
             low_stock_data = {
                 "Product": ["Product A", "Product D"],
                 "Stock Level": [8, 4],
@@ -176,7 +158,7 @@ def main():
             st.bar_chart(segment_data.set_index("Segment"))
         with col2:
             st.write("**Lifetime Value / Purchase Frequency (Placeholder)**")
-            # Replace with actual LTV/purchase frequency data.
+            # Replace with actual lifetime value or purchase frequency data.
             freq_data = np.random.randint(1, 5, 10)
             st.line_chart(freq_data)
 
@@ -216,45 +198,50 @@ def main():
         # --- CUSTOM REPORTS ---
         st.subheader("Custom Reports")
         st.write(
-            "Generate or schedule detailed reports combining Orders, Payments, "
-            "Shipping, and Inventory data."
+            "Generate or schedule detailed reports combining Orders, Payments, Shipping, and Inventory data."
         )
         if st.button("Create New Report"):
             st.success("Report creation process (placeholder).")
 
     # -----------------------------
-    # Chatbot Insights Page
+    # Chatbot Insights Page (Configured to Look Like Demo‑QSR)
     # -----------------------------
     elif page_selection == "Chatbot Insights":
         st.title("Chatbot Insights")
         st.write(
-            "Ask any question regarding the overall data model (Orders, Payments, Products, "
-            "Inventory, Customers, Suppliers, Shipping, etc.) and receive detailed insights."
+            "Ask any question about our entire data model (Orders, Payments, Products, Inventory, Customers, Suppliers, Shipping, etc.) and receive detailed insights."
         )
 
-        # Initialize conversation history in session_state if it doesn't exist.
-        if "chat_history" not in st.session_state:
-            st.session_state["chat_history"] = []
+        # Initialize the conversation history in session_state if it doesn't exist.
+        if "messages" not in st.session_state:
+            st.session_state.messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an expert in e-commerce business analytics. You have deep knowledge of the entire data model including Orders, Payments, "
+                        "Products, Inventory, Customers, Suppliers, Shipping, and other related tables. Provide insightful analysis and recommendations."
+                    )
+                }
+            ]
 
-        # Chat input form: When the user submits a query, call OpenAI's API.
-        with st.form(key="chat_form", clear_on_submit=True):
-            user_input = st.text_input("Enter your question:")
-            submit_button = st.form_submit_button(label="Send")
-        
-        if submit_button and user_input:
-            # Append user message to chat history.
-            st.session_state["chat_history"].append({"sender": "user", "message": user_input})
-            # Get chatbot response using OpenAI
-            bot_response = get_chatbot_response(user_input)
-            st.session_state["chat_history"].append({"sender": "bot", "message": bot_response})
-        
-        # Display the chat history.
-        st.markdown("### Conversation")
-        for chat in st.session_state["chat_history"]:
-            if chat["sender"] == "user":
-                st.markdown(f"**User:** {chat['message']}")
-            else:
-                st.markdown(f"**Chatbot:** {chat['message']}")
+        # Display the conversation history using Streamlit's chat components.
+        # Note: The system message is not displayed to the user.
+        for message in st.session_state.messages[1:]:
+            if message["role"] == "assistant":
+                st.chat_message("assistant").write(message["content"])
+            elif message["role"] == "user":
+                st.chat_message("user").write(message["content"])
+
+        # Get user input using the built-in chat input (available in recent versions of Streamlit).
+        user_input = st.chat_input("Ask your question about the data model:")
+        if user_input:
+            # Append the user's message to the conversation history.
+            st.session_state.messages.append({"role": "user", "content": user_input})
+            st.chat_message("user").write(user_input)
+            with st.spinner("Generating response..."):
+                get_chatbot_response()
+            # Display the latest assistant message.
+            st.chat_message("assistant").write(st.session_state.messages[-1]["content"])
 
 # -----------------------------
 # Run the App
